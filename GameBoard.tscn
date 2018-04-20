@@ -1,0 +1,49 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://Sprites/walnut-board.png" type="Texture" id=1]
+[ext_resource path="res://Sprites/gear.png" type="Texture" id=2]
+[ext_resource path="res://GoSettingsButton.gd" type="Script" id=3]
+
+[node name="GameBoard" type="Node" index="0"]
+
+_sections_unfolded = [ "Pause" ]
+
+[node name="BoardImage" type="Sprite" parent="." index="0"]
+
+position = Vector2( 0, 110 )
+texture = ExtResource( 1 )
+centered = false
+_sections_unfolded = [ "Offset", "Transform" ]
+
+[node name="SettingImage" type="Sprite" parent="." index="1"]
+
+position = Vector2( 1179.66, 3 )
+scale = Vector2( 0.5, 0.5 )
+texture = ExtResource( 2 )
+centered = false
+_sections_unfolded = [ "Offset", "Transform" ]
+
+[node name="GoSettingsButton" type="TextureButton" parent="SettingImage" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = 14.0
+margin_top = 8.0
+margin_right = 186.0
+margin_bottom = 187.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+focus_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 1
+toggle_mode = false
+enabled_focus_mode = 2
+shortcut = null
+group = null
+script = ExtResource( 3 )
+
+
