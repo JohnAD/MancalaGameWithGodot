@@ -8,6 +8,7 @@
 
 import strutils
 import turn_based_game
+import negamax
 
 
 #
@@ -15,6 +16,8 @@ import turn_based_game
 #
 
 type
+  ScoringMethodRule = enum
+    straight_scoring, greed_scoring, caution_scoring
   EogRule = enum
     traditional_sweep, empty_player_sweep, ending_player_sweep, never_sweep
   CaptureRule = enum
@@ -23,6 +26,7 @@ type
     board*: array[15, int]
     stones_per_pit*: int
     settings*: tuple[
+      scoring_method: ScoringMethodRule,
       eog_rule: EogRule,
       capture_rule: CaptureRule
     ]
@@ -101,18 +105,6 @@ const
       [ 6,  5,  4,  3, 2, 1],   # USER
       [13, 12, 11, 10, 9, 8],   # AI
   ]
-
-  ACTION = "action"
-  COUNT = "count"
-  LOC = "loc"
-
-  BALANCE = 0
-  GREED = 1
-  CAUTION = 2
-
-  EMPTY = 0
-  FULL = 1
-
 
 #
 #  2. add our rules (methods)
@@ -295,7 +287,7 @@ method make_move*(self: Kalah, move: string): string =
 
 method status*(self: Kalah): string =
   result = ""
-  result.add("hand: {}\n".format(self.board[HAND]))
+  result.add("hand: $1\n".format(self.board[HAND]))
   result.add("board:\n")
   result.add("           a    b    c    d    e    f      AI\n")
   for pl in [AI, HAND, USER]:
@@ -310,21 +302,57 @@ method status*(self: Kalah): string =
   result.add("           F    E    D    C    B    A      USER\n")
 
 
+#     def caution_scoring(self, player):
+#         raw_score = self.board[STORE_IDX[USER]]
+#         if self.player==AI:
+#             raw_score *= -1
+#         return raw_score * 1000
+
+#     def greed_scoring(self, player):
+#         raw_score = self.board[STORE_IDX[AI]]
+#         if self.player==USER:
+#             raw_score *= -1
+#         return raw_score * 1000
+
+
+proc straight_strategic_scoring(self: Kalah, player_number: int): float =
+  let opponent = self.next_player_number()
+  return (self.board[STORE_IDX[player_number]] - self.board[STORE_IDX[opponent]]).float * 1000.0
+
+
+method scoring*(self: Kalah): float =
+  var
+    strategic_score: float
+  if self.winner_player_number == self.current_player_number:
+    return 19000.0
+  elif self.winner_player_number > 0: # somebody won, but not me
+    return -19000.0
+  elif self.winner_Player_number == STALEMATE:
+    return -18000.0  # bad, but not a direct loss
+  strategic_score = self.straight_strategic_scoring(self.current_Player_number)
+  return strategic_score # plus, one day, a tactical score
+
+
+method get_state*(self: Kalah): string =
+  result = ""
+  for pit in 0..<15:
+    result.add(intToStr(self.board[pit], 2))
+  result.add(intToStr(self.current_player_number, 1))
+
+method restore_state*(self: Kalah, state: string): void =
+  for pit in 0..<15:
+    self.board[pit] = parseInt($(state[pit * 2] & state[pit * 2 + 1]))
+  self.current_player_number = parseInt($state[30])
+
 
 #
-# 3. invoke the new game object
+# for testing:
 #
-
 var game = Kalah()
 
-#
-# 4. reset (start) a new game with, in this case, 3 players
-#
-
-game.setup(4, @[Player(name: "A"), Player(name: "B")])
-
-#
-# 5. play the game at a terminal
-#
+var player_list: seq[Player] = @[]
+player_list.add(Player(name: "A"))
+player_list.add(NegamaxPlayer(name: "B", depth: 8)) # 9 is too slow
+game.setup(4, player_list)
 
 game.play()
