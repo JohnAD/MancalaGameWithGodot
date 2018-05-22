@@ -54,7 +54,7 @@ type
     next: array[3, int],
     role: PitRole,
     opposite: int,
-    distribute: array[3, int]
+    distance_to_store: array[3, int]
   ]
 
 const
@@ -78,21 +78,21 @@ const
   n = 0   # nil value in integer form
 
   P: array[15, PitDetail] = [
-    (owner: HAND, next: [n,  n,  n], role: palm , opposite:  n, distribute: [n,  n,  n]),
-    (owner: USER, next: [n,  2,  2], role: house, opposite: 13, distribute: [n,  6, 12]),
-    (owner: USER, next: [n,  3,  3], role: house, opposite: 12, distribute: [n,  5, 11]),
-    (owner: USER, next: [n,  4,  4], role: house, opposite: 11, distribute: [n,  4, 10]),
-    (owner: USER, next: [n,  5,  5], role: house, opposite: 10, distribute: [n,  3,  9]),
-    (owner: USER, next: [n,  6,  6], role: house, opposite:  9, distribute: [n,  2,  8]),
-    (owner: USER, next: [n,  7,  8], role: house, opposite:  8, distribute: [n,  1,  7]),
-    (owner: USER, next: [n,  8,  8], role: store, opposite:  0, distribute: [n,  n,  n]),
-    (owner: AI  , next: [n,  9,  9], role: house, opposite:  6, distribute: [n, 12,  6]),
-    (owner: AI  , next: [n, 10, 10], role: house, opposite:  5, distribute: [n, 11,  5]),
-    (owner: AI  , next: [n, 11, 11], role: house, opposite:  4, distribute: [n, 10,  4]),
-    (owner: AI  , next: [n, 12, 12], role: house, opposite:  3, distribute: [n,  9,  3]),
-    (owner: AI  , next: [n, 13, 13], role: house, opposite:  2, distribute: [n,  8,  2]),
-    (owner: AI  , next: [n,  1, 14], role: house, opposite:  1, distribute: [n,  7,  1]),
-    (owner: AI  , next: [n,  1,  1], role: store, opposite:  0, distribute: [n,  n,  n])
+    (owner: HAND, next: [n,  n,  n], role: palm , opposite:  n, distance_to_store: [n,  n,  n]),
+    (owner: USER, next: [n,  2,  2], role: house, opposite: 13, distance_to_store: [n,  6, 12]),
+    (owner: USER, next: [n,  3,  3], role: house, opposite: 12, distance_to_store: [n,  5, 11]),
+    (owner: USER, next: [n,  4,  4], role: house, opposite: 11, distance_to_store: [n,  4, 10]),
+    (owner: USER, next: [n,  5,  5], role: house, opposite: 10, distance_to_store: [n,  3,  9]),
+    (owner: USER, next: [n,  6,  6], role: house, opposite:  9, distance_to_store: [n,  2,  8]),
+    (owner: USER, next: [n,  7,  8], role: house, opposite:  8, distance_to_store: [n,  1,  7]),
+    (owner: USER, next: [n,  8,  8], role: store, opposite:  0, distance_to_store: [n,  n,  n]),
+    (owner: AI  , next: [n,  9,  9], role: house, opposite:  6, distance_to_store: [n, 12,  6]),
+    (owner: AI  , next: [n, 10, 10], role: house, opposite:  5, distance_to_store: [n, 11,  5]),
+    (owner: AI  , next: [n, 11, 11], role: house, opposite:  4, distance_to_store: [n, 10,  4]),
+    (owner: AI  , next: [n, 12, 12], role: house, opposite:  3, distance_to_store: [n,  9,  3]),
+    (owner: AI  , next: [n, 13, 13], role: house, opposite:  2, distance_to_store: [n,  8,  2]),
+    (owner: AI  , next: [n,  1, 14], role: house, opposite:  1, distance_to_store: [n,  7,  1]),
+    (owner: AI  , next: [n,  1,  1], role: store, opposite:  0, distance_to_store: [n,  n,  n])
   ]
   ALL_PITS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
@@ -128,6 +128,9 @@ method setup*(self: Kalah, per_pit: int, players: seq[Player]) {.base.} =
     for pit in HOUSE_LIST[pl]:
       self.board[pit] = self.stones_per_pit
 
+proc is_stopping_in_own_store(self: Kalah, pit_index: int): bool =
+  let count = self.board[pit_index] mod 13  # if seeds > 12 then they wrap around board; so modulo 13
+  return count == P[pit_index].distance_to_store[self.current_player_number]
 
 proc immediate_moves(self: Kalah): seq[string] = 
   result = @[]
@@ -135,12 +138,35 @@ proc immediate_moves(self: Kalah): seq[string] =
     if self.board[pit] != 0:
       result.add($CHARMAP[pit])
 
+proc recurse_moves(self: Kalah, move_list: seq[string], completed_list: var seq[string]): void =
+  var last_move: char
+  var last_pit: int
+  var more_choices: seq[string]
+  var next_moves: seq[string]
+
+  let board_copy = self.board # make copy for later restoration
+
+  for move in move_list:
+    last_move = move[^1]
+    last_pit = find(CHARMAP, last_move)
+    if self.is_stopping_in_own_store(last_pit):
+      # temporarily make the moves and recurse to find more
+      discard self.make_move($last_move)
+      more_choices = self.immediate_moves()
+      if len(more_choices) > 0:
+        next_moves = @[]
+        for choice in more_choices:
+          next_moves.add(move & choice)
+        self.recurse_moves(next_moves, completed_list)
+      else:
+        completed_list.add(move)
+      self.board = board_copy # restore board back
+    else:
+      completed_list.add(move)
+
 method set_possible_moves*(self: Kalah, moves: var seq[string]) =
   moves = @[]
-  var immediate = immediate_moves(self)
-  # for move in immediate:
-  #   final_list = recurse_moves(self, move, moves)
-  moves = immediate
+  self.recurse_moves(self.immediate_moves(), moves)
 
 
 method determine_winner*(self: Kalah) =
@@ -159,6 +185,8 @@ method determine_winner*(self: Kalah) =
       self.winner_player_number = AI
     else:
       self.winner_player_number = STALEMATE
+  else:
+    self.winner_player_number = NO_WINNER_YET
 
 
 
